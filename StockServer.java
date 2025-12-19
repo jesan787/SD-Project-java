@@ -4,10 +4,9 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class StockServer {
+    // Railway/Cloud dynamic port logic
     private static final int PORT = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
-    // Stock data: Symbol -> Price
     private static Map<String, Double> stocks = new ConcurrentHashMap<>();
-    private static final double THRESHOLD = 150.0; // Notification trigger
 
     public static void main(String[] args) {
         initializeStocks();
@@ -40,7 +39,7 @@ public class StockServer {
     private static void updatePrices() {
         Random r = new Random();
         for (String symbol : stocks.keySet()) {
-            double change = (r.nextDouble() * 4) - 2; // Random change between -2 and +2
+            double change = (r.nextDouble() * 4) - 2;
             stocks.put(symbol, Math.max(10, stocks.get(symbol) + change));
         }
     }
@@ -57,24 +56,41 @@ public class StockServer {
             try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                  PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
                 
-                String request = in.readLine();
-                if (request == null) return;
+                String requestLine = in.readLine();
+                if (requestLine == null) return;
 
-                // Basic HTTP response so the HTML/JS can read the data
-                if (request.contains("GET")) {
-                    out.println("HTTP/1.1 200 OK");
-                    out.println("Content-Type: application/json");
-                    out.println("Access-Control-Allow-Origin: *"); // Allows HTML to connect
+                // 1. HANDLE OPTIONS REQUEST (The Browser Handshake)
+                if (requestLine.contains("OPTIONS")) {
+                    out.println("HTTP/1.1 204 No Content");
+                    out.println("Access-Control-Allow-Origin: *");
+                    out.println("Access-Control-Allow-Methods: GET, OPTIONS");
+                    out.println("Access-Control-Allow-Headers: Content-Type");
+                    out.println("Access-Control-Max-Age: 86400");
+                    out.println("Connection: close");
                     out.println("");
-                    
+                    return;
+                }
+
+                // 2. HANDLE GET REQUEST (The Actual Data)
+                if (requestLine.contains("GET")) {
                     StringBuilder json = new StringBuilder("{");
                     stocks.forEach((k, v) -> json.append(String.format("\"%s\":%.2f,", k, v)));
-                    json.deleteCharAt(json.length() - 1).append("}");
+                    if (json.length() > 1) json.deleteCharAt(json.length() - 1);
+                    json.append("}");
                     
-                    out.println(json.toString());
+                    String body = json.toString();
+
+                    out.println("HTTP/1.1 200 OK");
+                    out.println("Content-Type: application/json");
+                    out.println("Content-Length: " + body.length());
+                    out.println("Access-Control-Allow-Origin: *"); 
+                    out.println("Connection: close");
+                    out.println("");
+                    out.println(body);
+                    out.flush();
                 }
             } catch (IOException e) {
-                System.out.println("Client disconnected.");
+                // Connection closed by browser
             }
         }
     }
