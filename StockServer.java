@@ -4,14 +4,14 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class StockServer {
-    // Railway/Cloud dynamic port logic
+    // Railway dynamic port logic: defaults to 8080 if PORT env variable isn't found
     private static final int PORT = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
     private static Map<String, Double> stocks = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         initializeStocks();
 
-        // Thread to update stock prices every second
+        // Background thread to update prices every 1 second
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(StockServer::updatePrices, 0, 1, TimeUnit.SECONDS);
 
@@ -54,24 +54,24 @@ public class StockServer {
         @Override
         public void run() {
             try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
+                 PrintWriter out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true)) {
                 
                 String requestLine = in.readLine();
                 if (requestLine == null) return;
 
-                // 1. HANDLE OPTIONS REQUEST (The Browser Handshake)
+                // 1. HANDLE OPTIONS REQUEST (Browser Security Handshake)
                 if (requestLine.contains("OPTIONS")) {
-                    out.println("HTTP/1.1 204 No Content");
-                    out.println("Access-Control-Allow-Origin: *");
-                    out.println("Access-Control-Allow-Methods: GET, OPTIONS");
-                    out.println("Access-Control-Allow-Headers: Content-Type");
-                    out.println("Access-Control-Max-Age: 86400");
-                    out.println("Connection: close");
-                    out.println("");
+                    out.print("HTTP/1.1 204 No Content\r\n");
+                    out.print("Access-Control-Allow-Origin: *\r\n");
+                    out.print("Access-Control-Allow-Methods: GET, OPTIONS\r\n");
+                    out.print("Access-Control-Allow-Headers: Content-Type\r\n");
+                    out.print("Connection: close\r\n");
+                    out.print("\r\n"); // End of headers
+                    out.flush();
                     return;
                 }
 
-                // 2. HANDLE GET REQUEST (The Actual Data)
+                // 2. HANDLE GET REQUEST (Actual Stock Data)
                 if (requestLine.contains("GET")) {
                     StringBuilder json = new StringBuilder("{");
                     stocks.forEach((k, v) -> json.append(String.format("\"%s\":%.2f,", k, v)));
@@ -80,17 +80,20 @@ public class StockServer {
                     
                     String body = json.toString();
 
-                    out.println("HTTP/1.1 200 OK");
-                    out.println("Content-Type: application/json");
-                    out.println("Content-Length: " + body.length());
-                    out.println("Access-Control-Allow-Origin: *"); 
-                    out.println("Connection: close");
-                    out.println("");
-                    out.println(body);
+                    // Using \r\n ensures the browser parses headers correctly
+                    out.print("HTTP/1.1 200 OK\r\n");
+                    out.print("Content-Type: application/json\r\n");
+                    out.print("Content-Length: " + body.length() + "\r\n");
+                    out.print("Access-Control-Allow-Origin: *\r\n"); 
+                    out.print("Connection: close\r\n");
+                    out.print("\r\n"); // End of headers
+                    out.print(body);
                     out.flush();
                 }
             } catch (IOException e) {
-                // Connection closed by browser
+                // Connection closed by client
+            } finally {
+                try { socket.close(); } catch (IOException e) {}
             }
         }
     }
