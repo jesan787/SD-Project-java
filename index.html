@@ -33,14 +33,20 @@
         let alertedStocks = new Set(); 
 
         async function fetchStocks() {
-            try {
-                const response = await fetch('https://sd-project-java-production.up.railway.app/');
-                const data = await response.json();
-                updateUI(data);
-            } catch (err) {
-                console.error("ERROR");
-            }
-        }
+    try {
+        // Must use https:// and the trailing /
+        const response = await fetch('https://sd-project-java-production.up.railway.app/', {
+            cache: "no-store"
+        });
+        
+        if (!response.ok) throw new Error('Server unreachable');
+        
+        const data = await response.json();
+        updateUI(data);
+    } catch (err) {
+        console.error("Connection Error:", err);
+    }
+}
 
         function showPopup(symbol, price) {
             // Only show if the modal isn't already open
