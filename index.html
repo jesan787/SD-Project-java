@@ -34,7 +34,7 @@
 
         async function fetchStocks() {
             try {
-                const response = await fetch('http://localhost:5000');
+                const response = await fetch('https://sd-project-java-production.up.railway.app');
                 const data = await response.json();
                 updateUI(data);
             } catch (err) {
