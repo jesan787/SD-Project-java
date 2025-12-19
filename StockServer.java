@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class StockServer {
-    private static final int PORT = 5000;
+    private static final int PORT = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
     // Stock data: Symbol -> Price
     private static Map<String, Double> stocks = new ConcurrentHashMap<>();
     private static final double THRESHOLD = 150.0; // Notification trigger
