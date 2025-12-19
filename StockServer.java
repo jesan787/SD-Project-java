@@ -9,7 +9,7 @@ public class StockServer {
             Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
 
     private static final String ALLOWED_ORIGIN =
-            "https://sd-project-demo.netlify.app"; // 👈 YOUR NETLIFY URL
+            "https://sd-project-demo.netlify.app"; 
 
     private static final Map<String, Double> stocks = new ConcurrentHashMap<>();
 
