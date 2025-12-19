@@ -4,15 +4,13 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class StockServer {
-    private static final int PORT = 5000;
-    // Stock data: Symbol -> Price
+    // Railway/Cloud dynamic port logic
+    private static final int PORT = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
     private static Map<String, Double> stocks = new ConcurrentHashMap<>();
-    private static final double THRESHOLD = 150.0; // Notification trigger
 
     public static void main(String[] args) {
         initializeStocks();
 
-        // Thread to update stock prices every second
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(StockServer::updatePrices, 0, 1, TimeUnit.SECONDS);
 
@@ -40,7 +38,7 @@ public class StockServer {
     private static void updatePrices() {
         Random r = new Random();
         for (String symbol : stocks.keySet()) {
-            double change = (r.nextDouble() * 4) - 2; // Random change between -2 and +2
+            double change = (r.nextDouble() * 4) - 2;
             stocks.put(symbol, Math.max(10, stocks.get(symbol) + change));
         }
     }
@@ -60,21 +58,26 @@ public class StockServer {
                 String request = in.readLine();
                 if (request == null) return;
 
-                // Basic HTTP response so the HTML/JS can read the data
                 if (request.contains("GET")) {
+                    // MANDATORY HEADERS FOR CLOUD DEPLOYMENT
                     out.println("HTTP/1.1 200 OK");
                     out.println("Content-Type: application/json");
-                    out.println("Access-Control-Allow-Origin: *"); // Allows HTML to connect
+                    out.println("Access-Control-Allow-Origin: *"); 
+                    out.println("Access-Control-Allow-Methods: GET, OPTIONS"); 
+                    out.println("Access-Control-Allow-Headers: Content-Type");
+                    out.println("Connection: close");
                     out.println("");
                     
                     StringBuilder json = new StringBuilder("{");
                     stocks.forEach((k, v) -> json.append(String.format("\"%s\":%.2f,", k, v)));
-                    json.deleteCharAt(json.length() - 1).append("}");
+                    if (json.length() > 1) json.deleteCharAt(json.length() - 1);
+                    json.append("}");
                     
                     out.println(json.toString());
+                    out.flush();
                 }
             } catch (IOException e) {
-                System.out.println("Client disconnected.");
+                System.out.println("Client handled.");
             }
         }
     }
