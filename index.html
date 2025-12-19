@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Stock Monitor</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="alertModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div class="modal-body">
+                <h2 style="color: #a18d8d;">! Price Dropped !</h2>
+                <p id="modalMessage">Stock information goes here.</p>
+                <button class="ok-btn" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>                      Real-Time Stock Monitoring System </h1>
+        <div id="notification" class="hidden"></div>
+        
+        <div class="stock-grid" id="stock-container">
+            </div>
+    </div>
+
+    <script>
+        const THRESHOLD = 135.0; 
+        let isModalOpen = false;
+        // TRACKER: Stores symbols that have already shown a popup
+        let alertedStocks = new Set(); 
+
+        async function fetchStocks() {
+            try {
+                const response = await fetch('http://localhost:5000');
+                const data = await response.json();
+                updateUI(data);
+            } catch (err) {
+                console.error("ERROR");
+            }
+        }
+
+        function showPopup(symbol, price) {
+            // Only show if the modal isn't already open
+            if (isModalOpen) return; 
+            
+            const modal = document.getElementById('alertModal');
+            const message = document.getElementById('modalMessage');
+            
+            message.innerHTML = `<strong>${symbol}</strong> has dropped to <span style="color: #ef4444;">$${price.toFixed(2)}</span>!`;
+            modal.style.display = "flex";
+            isModalOpen = true;
+        }
+
+        function closeModal() {
+            document.getElementById('alertModal').style.display = "none";
+            isModalOpen = false;
+        }
+
+        function updateUI(data) {
+            const container = document.getElementById('stock-container');
+            container.innerHTML = '';
+            let anyCritical = false;
+
+            for (const [symbol, price] of Object.entries(data)) {
+                const isCritical = price < THRESHOLD;
+                const card = document.createElement('div');
+                card.className = 'stock-card';
+                
+                if (isCritical) {
+                    card.classList.add('low-price');
+                    anyCritical = true;
+
+                    // CHECK: Has this stock already alerted the user?
+                    if (!alertedStocks.has(symbol)) {
+                        showPopup(symbol, price);
+                        alertedStocks.add(symbol); // Mark as alerted
+                    }
+                } else {
+                    // RESET: If price goes back up, allow it to alert again next time it drops
+                    alertedStocks.delete(symbol);
+                }
+
+                card.innerHTML = `
+                    <h3>${symbol}</h3>
+                    <p class="price">$${price.toFixed(2)}</p>
+                    <div class="status-tag ${isCritical ? 'status-crit' : 'status-stable'}">
+                        ${isCritical ? '🔻 CRITICAL' : ' STABLE'}
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+
+            const alertBox = document.getElementById('notification');
+            alertBox.className = anyCritical ? 'visible' : 'hidden';
+        }
+
+        setInterval(fetchStocks, 1000);
+    </script>
+</body>
+</html>
